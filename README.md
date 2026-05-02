@@ -11,6 +11,15 @@ DO NOT touch the SERVER Terminal when it starts running. Only interact with the 
 I have fixed the file name issue
 Added console log "Username" has disconnected, when client exits terminal
 
+Essential Git Commands for terminal to use:
+
+  git clone "URL" = clones the repository to your IDE. You must be in the Directory you want before running
+  git status = shows which files are modified, staged or untracked
+  git commit -m "Your Message for your commit" = Adding a commit message before you push
+  git add . = This is a shorcut to stage all modified files instead of individuals
+  git push = uploads your commits to GitHub
+  git pull = pulls the latest changes from repo and updates all your files to match changes
+
 How to run:
 Note: The Commands AUTH, MSG and FILE are CASE-SENSITIVE and files sent must also include File Extension!
   Use the following commands in your terminal:
