@@ -32,8 +32,11 @@ Note: The Commands AUTH, MSG and FILE are CASE-SENSITIVE and files sent must als
     java -jar Server.jar
     Java -jar Client.jar
 
-When sending the file. It'll be saved as "recieved_from_Sender_FileName"
+When sending the file. It'll be saved as "received_from_Sender_FileName"
 This is so you can see the successful transfer of a file, without running into replacement issue.
 Files sent will appear in the same folder as your JAR files
+
+Here is the link to the drive with the JAR files and Test files to play with:
+https://drive.google.com/drive/folders/1yjmQnb-HfuZ1f6vERf3gFZIEcawc2Bg7?usp=drive_link
 
 *Make sure to have the TextFile.txt in the same folder as the java folders to run it*
