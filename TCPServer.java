@@ -1,14 +1,16 @@
 import java.io.*;
 import java.net.*;
-import java.util.HashMap;
+import java.util.ArrayList;
 
 public class TCPServer {
 
+    private static int port = 6001;
+
     // A dictionary mapping authenticated Usernames to their network connection stream
-    static HashMap<String, DataOutputStream> activeUsers = new HashMap<>();
+    static ArrayList<UserObject> activeUsers = new ArrayList<UserObject>();
 
     public static void main(String argv[]) throws Exception {
-        ServerSocket welcomeSocket = new ServerSocket(1999);
+        ServerSocket welcomeSocket = new ServerSocket(port);
         System.out.println("Server is running on port " + welcomeSocket.getLocalPort());
 
         while (true) {
@@ -31,7 +33,7 @@ public class TCPServer {
         }
 
         public void run() {
-            String loggedInUser = null;
+            UserObject loggedInUser = null;
 
             try {
                 BufferedReader inFromClient =
@@ -48,47 +50,65 @@ public class TCPServer {
                     String[] parts = clientSentence.split(" ", 3);
                     String command = parts[0];
 
-                    if (command.equals("AUTH") && parts.length >= 3) {
-                        loggedInUser = parts[1];
-                        String password = parts[2]; // Password validation would go here
+                    if (parts.length >= 3) {
+                        switch (command) {
+                            case "AUTH":
+                                String username = parts[1];
+                                String password = parts[2]; // Password validation would go here
+                                loggedInUser = new UserObject(username, outToClient);
+//                              Functionally the same as:
+//                                  loggedInUser = new UserObject();
+//                                  loggedInUser.setUsername(username);
+//                                  loggedInUser.setDataStream(outToClient);
+                                activeUsers.add(loggedInUser);
+                                outToClient.writeBytes("SERVER: Authenticated successfully as " + loggedInUser + "\n");
+                                System.out.println(loggedInUser + " logged in.");
+                                break;
+                            case "MSG":
+                                if (loggedInUser != null) {
+                                    String targetUser = parts[1];
+                                    String message = parts[2];
 
-                        activeUsers.put(loggedInUser, outToClient);
-                        outToClient.writeBytes("SERVER: Authenticated successfully as " + loggedInUser + "\n");
-                        System.out.println(loggedInUser + " logged in.");
+                                    // Route the message to the target user if they are online
+                                    UserObject targetUserObject = getUser(targetUser);
+                                    if (targetUserObject != null) {
+                                        DataOutputStream targetOut = targetUserObject.getDataStream();
+                                        targetOut.writeBytes("MSG from " + loggedInUser + ": " + message + "\n");
+                                    } else {
+                                        outToClient.writeBytes("SERVER: User " + targetUser + " is offline.\n");
+                                    }
+                                } else {
+                                    throw new UserNotFoundException("User does not exist.");
+                                }
+                                break;
+                            case "FILE":
+                                if (loggedInUser != null) {
+                                    String targetUser = parts[1];
 
-                    } else if (command.equals("MSG") && parts.length >= 3 && loggedInUser != null) {
-                        String targetUser = parts[1];
-                        String message = parts[2];
+                                    // Split the data payload into filename and base64 string
+                                    String[] fileParts = parts[2].split(" ", 2);
 
-                        // Route the message to the target user if they are online
-                        if (activeUsers.containsKey(targetUser)) {
-                            DataOutputStream targetOut = activeUsers.get(targetUser);
-                            targetOut.writeBytes("MSG from " + loggedInUser + ": " + message + "\n");
-                        } else {
-                            outToClient.writeBytes("SERVER: User " + targetUser + " is offline.\n");
+                                    if (fileParts.length == 2) {
+                                        String fileName = fileParts[0];
+                                        String fileData = fileParts[1];
+
+                                        // Route the encoded file string to the target user
+                                        UserObject targetUserObject = getUser(targetUser);
+                                        if (targetUserObject != null) {
+                                            DataOutputStream targetOut = targetUserObject.getDataStream();
+                                            targetOut.writeBytes("FILE from " + loggedInUser + " " + fileName + " " + fileData + "\n");
+                                        } else {
+                                            outToClient.writeBytes("SERVER: User " + targetUser + " is offline.\n");
+                                        }
+                                    }
+                                } else {
+                                    throw new UserNotFoundException("User does not exist.");
+                                }
                         }
-
-                    } else if (command.equals("FILE") && parts.length >= 3 && loggedInUser != null) {
-                        String targetUser = parts[1];
-
-                        // Split the data payload into filename and base64 string
-                        String[] fileParts = parts[2].split(" ", 2);
-
-                        if (fileParts.length == 2) {
-                            String fileName = fileParts[0];
-                            String fileData = fileParts[1];
-
-                            // Route the encoded file string to the target user
-                            if (activeUsers.containsKey(targetUser)) {
-                                DataOutputStream targetOut = activeUsers.get(targetUser);
-                                targetOut.writeBytes("FILE from " + loggedInUser + " " + fileName + " " + fileData + "\n");
-                            } else {
-                                outToClient.writeBytes("SERVER: User " + targetUser + " is offline.\n");
-                            }
-                        }
+                    } else{
+                        throw new InvalidArgCount("Not enough arguments.");
                     }
                 }
-
             } catch (Exception e) {
                 // This catches forced disconnects (like hitting Ctrl+C)
             } finally {
@@ -100,9 +120,9 @@ public class TCPServer {
                     System.out.println(loggedInUser + " has disconnected.");
 
                     // 2. Broadcast the disconnection to everyone else
-                    for (DataOutputStream remainingClient : activeUsers.values()) {
+                    for (UserObject remainingClient : activeUsers) {
                         try {
-                            remainingClient.writeBytes("SERVER: " + loggedInUser + " has left the chat.\n");
+                            remainingClient.getDataStream().writeBytes("SERVER: " + loggedInUser.getUsername() + " has left the chat.\n");
                         } catch (Exception ex) {
                             // Ignore if another user happens to be disconnecting at the exact same time
                         }
@@ -110,6 +130,18 @@ public class TCPServer {
                 }
             }
         }
+
+        public UserObject getUser(String username) {
+            for (int i = 0; i < activeUsers.size(); i++) {
+                UserObject current_user = activeUsers.get(i);
+                if (current_user.getUsername() == username) {
+                    return current_user;
+                }
+            }
+            return null;
+        }
+
+
     }
 }
 
